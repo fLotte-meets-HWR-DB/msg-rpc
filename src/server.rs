@@ -4,7 +4,7 @@ use std::io;
 use byteorder::{BigEndian, ByteOrder};
 use crate::message::Message;
 use std::sync::{Arc, Mutex};
-use std::sync::mpsc::{Receiver, Sender};
+use std::sync::mpsc::{Receiver, Sender, channel};
 use crossbeam_utils::sync::WaitGroup;
 use std::mem;
 
@@ -32,6 +32,17 @@ pub struct RpcServer {
 }
 
 impl RpcServer {
+
+    /// Creates a new RPC Server
+    pub fn new(address: String) -> Self {
+        let (tx, rx) = channel();
+        Self {
+            address,
+            sender: tx,
+            receiver: Arc::new(Mutex::new(rx))
+        }
+    }
+
     /// Starts the RPC server
     pub fn start(&mut self) -> io::Result<()> {
         let listener = TcpListener::bind(&self.address)?;
