@@ -69,8 +69,8 @@ impl RpcServer {
 
         for _ in 0..(length as f32 / BUF_SIZE as f32).ceil() as usize {
             let mut buf = [0u8; BUF_SIZE];
-            incoming.read(&mut buf)?;
-            data.append(&mut buf.to_vec())
+            let read_size = incoming.read(&mut buf)?;
+            data.append(&mut buf[0..read_size].to_vec())
         }
         log::trace!("Message read as {:?}", data);
 
