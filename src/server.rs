@@ -12,7 +12,7 @@ const BUF_SIZE: usize = 512;
 
 #[derive(Clone, Debug)]
 pub struct MessageHandler {
-    message: Message,
+    pub message: Message,
     pub response: Option<Message>,
     pub wg: WaitGroup,
 }
