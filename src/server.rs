@@ -47,6 +47,7 @@ impl RpcServer {
     pub fn start(&mut self) -> io::Result<()> {
         let listener = TcpListener::bind(&self.address)?;
         for stream in listener.incoming() {
+            log::trace!("Connection received.");
             match stream {
                 Ok(s) => if let Err(e) = self.handle_message(s) {
                     log::trace!("Error handling message {}", e.to_string())
@@ -71,8 +72,12 @@ impl RpcServer {
             incoming.read(&mut buf)?;
             data.append(&mut buf.to_vec())
         }
+        log::trace!("Message read as {:?}", data);
 
-        let message = Message::from_bytes(&data).map_err(|_|io::Error::from(ErrorKind::InvalidData))?;
+        let message = Message::from_bytes(&data).map_err(|e|{
+            log::trace!("Failed to deserialize: {:?}", e);
+            io::Error::from(ErrorKind::InvalidData)
+        })?;
         let wg = WaitGroup::new();
 
         let handler = Arc::new(Mutex::new(MessageHandler {
