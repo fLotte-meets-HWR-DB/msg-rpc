@@ -12,20 +12,16 @@ pub enum DeserializeError {
 
 #[derive(Clone, Debug, PartialOrd, PartialEq)]
 pub struct Message {
-    length: u32,
-    method: [u8; 4],
-    data: Vec<u8>,
-    pub crc: Option<u32>,
+    pub method: [u8; 4],
+    pub data: Vec<u8>,
 }
 
 impl Message {
     /// Creates a new message
     pub fn new(method: [u8; 4], data: Vec<u8>) -> Self {
         Self {
-            length: (12 + data.len()) as u32,
             method,
             data,
-            crc: None,
         }
     }
 
@@ -35,9 +31,7 @@ impl Message {
         data.serialize(&mut Serializer::new(&mut buf)).unwrap();
         Self {
             method,
-            length: (12 + buf.len()) as u32,
             data: buf,
-            crc: None,
         }
     }
 
@@ -65,10 +59,8 @@ impl Message {
         let data = bytes[8..(length as usize - 4)].to_vec();
 
         Ok(Self {
-            length,
             method,
             data,
-            crc: Some(crc)
         })
     }
 
@@ -76,7 +68,7 @@ impl Message {
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut data = Vec::new();
         let mut length_raw = [0u8; 4];
-        BigEndian::write_u32(&mut length_raw, self.length);
+        BigEndian::write_u32(&mut length_raw, self.data.len()  as u32 + 12);
         data.append(&mut length_raw.to_vec());
         data.append(&mut self.method.clone().to_vec());
         data.append(&mut self.data.clone());
