@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{Receiver, Sender, channel};
 use crossbeam_utils::sync::WaitGroup;
 use std::mem;
+use scheduled_thread_pool::ScheduledThreadPool;
 
 const BUF_SIZE: usize = 512;
 
@@ -46,11 +47,18 @@ impl RpcServer {
     /// Starts the RPC server
     pub fn start(&mut self) -> io::Result<()> {
         let listener = TcpListener::bind(&self.address)?;
+        let pool = ScheduledThreadPool::new(num_cpus::get());
         for stream in listener.incoming() {
             log::trace!("Connection received.");
             match stream {
-                Ok(s) => if let Err(e) = self.handle_message(s) {
-                    log::trace!("Error handling message {}", e.to_string())
+                Ok(s) => {
+                    let sender = Sender::clone(&self.sender);
+                    log::trace!("Scheduling message to be handled by thread pool");
+                    pool.execute(|| {
+                        if let Err(e) = Self::handle_message(sender, s) {
+                            log::trace!("Error handling message {}", e.to_string())
+                        }
+                    });
                 },
                 Err(e) => log::trace!("TCP Error {}", e.to_string())
             }
@@ -60,7 +68,7 @@ impl RpcServer {
     }
 
     /// Handles a message
-    fn handle_message(&mut self, mut incoming: TcpStream) -> io::Result<()> {
+    fn handle_message(sender: Sender<Arc<Mutex<MessageHandler>>>, mut incoming: TcpStream) -> io::Result<()> {
         let mut length_raw = [0u8; 4];
         incoming.read_exact(&mut length_raw)?;
         let length = BigEndian::read_u32(&length_raw);
@@ -85,7 +93,7 @@ impl RpcServer {
             wg: WaitGroup::clone(&wg),
             response: None,
         }));
-        self.sender.send(Arc::clone(&handler)).unwrap();
+        sender.send(Arc::clone(&handler)).unwrap();
         wg.wait();
         if let Some(response) = mem::replace(&mut handler.lock().unwrap().response, None) {
             incoming.write(&response.to_bytes())?;
